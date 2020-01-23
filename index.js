@@ -1,78 +1,38 @@
-const chevrotain = require('chevrotain');
 const util = require('util');
 const fs = require('fs');
 
-const { createToken, Lexer } = chevrotain;
+const {
+  lexer,
+} = require('./src/lexer');
+const parser = require('./src/parser');
+const interpreter = require('./src/interpreter');
 
-const Identificador = createToken({
-  name: 'Identificador',
-  pattern: /[a-zA-Z](\w|\d)*/,
-});
+const program = fs.readFileSync('./programa.ula').toString();
 
-const Entero = createToken({
-  name: 'Entero',
-  pattern: /0|[1-9]\d*/,
-});
+// 1. "Tokenizar" la entrada
+const lexResult = lexer.tokenize(program);
 
-const CadenaCaracteres = createToken({
-  name: 'CadenaCaracteres',
-  pattern: /"(\w|\d|\s)*"/,
-});
+// 2. "Parsear" el vector de tokens
+parser.input = lexResult.tokens;
+const cst = parser.Program();
 
-const MayorQue = createToken({
-  name: 'MayorQue',
-  pattern: />/,
-});
+if (parser.errors.length > 0) {
+  console.error(parser.errors[0]);
+  process.exit(1);
+}
 
-const MenorQue = createToken({
-  name: 'MenorQue',
-  pattern: /</,
-});
+// 3. Ejecutar analisis semantico usando CstVisitor.
+const value = interpreter.visit(cst);
 
-const Crear = createToken({
-  name: 'Crear',
-  pattern: /crear/,
-});
+const result = {
+  value,
+  lexResult,
+  parseErrors: parser.errors,
+};
 
-const Numero = createToken({
-  name: 'Numero',
-  pattern: /numero/,
-});
-
-const Mostrar = createToken({
-  name: 'Mostrar',
-  pattern: /mostrar/,
-});
-
-const Si = createToken({
-  name: 'Condicional',
-  pattern: /si/,
-});
-
-const EspacioBlanco = createToken({
-  name: 'EspacioBlanco',
-  pattern: /\s+/,
-  group: Lexer.SKIPPED,
-});
-
-const allTokens = [
-  EspacioBlanco,
-  // Palabras Clave
-  Crear,
-  Numero,
-  Mostrar,
-  Si,
-  CadenaCaracteres,
-  // Identificadores
-  Identificador,
-  Entero,
-  MayorQue,
-  MenorQue,
-];
-
-const lexer = new Lexer(allTokens);
-
-const input = fs.readFileSync('./programa.ula').toString();
-const output = lexer.tokenize(input);
-console.log(input);
-console.log(util.inspect(output, false, null, true));
+console.log('\nEntrada:\n');
+console.log(program);
+console.log('\nSalida:\n');
+console.log(result.value.join('\n'));
+console.log('\n');
+// console.log(util.inspect(result, false, null, true));
