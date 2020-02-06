@@ -1,4 +1,4 @@
-const util = require('util');
+// const util = require('util');
 const fs = require('fs');
 
 const {
@@ -9,7 +9,11 @@ const interpreter = require('./src/interpreter');
 
 const program = fs.readFileSync('./examples/programa.ula').toString();
 
-const filteredProgram = program.split('\n').map((line) => (line.endsWith('*/') ? line : `${line};`)).join('\n');
+// 0. Agregar ; al final de lineas
+// TODO: mejorar implementacion cuando es una linea con comentario
+const filteredProgram = program.split('\n')
+  .map((line) => (line.endsWith('*/') ? line : `${line};`))
+  .join('\n');
 
 // 1. "Tokenizar" la entrada
 const lexResult = lexer.tokenize(filteredProgram);
