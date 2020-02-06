@@ -7,7 +7,7 @@ const {
 const parser = require('./src/parser');
 const interpreter = require('./src/interpreter');
 
-const program = fs.readFileSync('./programa.ula').toString();
+const program = fs.readFileSync('./examples/programa.ula').toString();
 
 const filteredProgram = program.split('\n').map((line) => (line.endsWith('*/') ? line : `${line};`)).join('\n');
 
