@@ -90,6 +90,8 @@ class UlaInterpreter extends BaseCstVisitor {
   }
 
   Program(ctx) {
+    console.log(util.inspect(ctx, false, null, true));
+
     return this.visit(ctx.SourceElements);
   }
 }

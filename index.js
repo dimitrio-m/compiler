@@ -9,8 +9,10 @@ const interpreter = require('./src/interpreter');
 
 const program = fs.readFileSync('./programa.ula').toString();
 
+const filteredProgram = program.split('\n').map((line) => (line.endsWith('*/') ? line : `${line};`)).join('\n');
+
 // 1. "Tokenizar" la entrada
-const lexResult = lexer.tokenize(program);
+const lexResult = lexer.tokenize(filteredProgram);
 
 // 2. "Parsear" el vector de tokens
 parser.input = lexResult.tokens;

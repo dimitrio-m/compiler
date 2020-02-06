@@ -1,4 +1,4 @@
 /* Operaciones Aritmenticas con valores literales */
-3 por (1 + 2);
-2 mas 2;
-7;
+3 por 1 + 2
+2 mas 2
+7
