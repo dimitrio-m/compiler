@@ -1,18 +1,22 @@
-const chevrotain = require('chevrotain');
-const lexer = require('./lexer');
 
-const { EmbeddedActionsParser, EOF, tokenMatcher } = chevrotain;
-const { Tokens, tokenList, AbstractTokens } = lexer;
+const { EmbeddedActionsParser, EOF, tokenMatcher } = require('chevrotain');
+const tokens = require('./ecma5_tokens');
+// for conciseness
+const t = tokens;
 
 const ENABLE_SEMICOLON_INSERTION = true;
 const DISABLE_SEMICOLON_INSERTION = false;
 
-const t = Tokens;
+// as defined in https://www.ecma-international.org/ecma-262/5.1/index.html
+class ECMAScript5Parser extends EmbeddedActionsParser {
+  set orgText(newText) {
+    this._orgText = newText;
+  }
 
-// Parser LL(2)
-class UlaParser extends EmbeddedActionsParser {
   constructor() {
-    super(tokenList, {
+    super(tokens, {
+      // Reduces Parser Initialization time and this grammar does not need
+      // a larger lookahead.
       maxLookahead: 2,
     });
 
@@ -20,7 +24,6 @@ class UlaParser extends EmbeddedActionsParser {
     this.SUPER_CONSUME = super.CONSUME;
     this.SUPER_CONSUME2 = super.CONSUME2;
 
-    // eslint-disable-next-line no-underscore-dangle
     this._orgText = '';
 
     // to avoid V8 hidden class changes by dynamic definition
@@ -33,12 +36,25 @@ class UlaParser extends EmbeddedActionsParser {
 
     const $ = this;
 
+    // A.3 Expressions
+    // Note that the binary expression operators are treated as a flat list
+    // instead of using a new rule for each precedence level.
+    // This is both faster and less verbose but it means additional logic must be used to re-order the flat list
+    // into a precedence tree.
+    // This approach was used in the swift compiler.
+    // https://developer.apple.com/library/content/documentation/Swift/Conceptual/Swift_Programming_Language/Expressions.html#//apple_ref/doc/uid/TP40014097-CH32-ID383
+    // (scroll down to the note on binary expressions)
+
+    // Also note that such logic can only be implemented once the parser actually outputs some data structure...
+
     // See 11.1
     $.RULE('PrimaryExpression', () => {
       $.OR(
         $.c5
           || ($.c5 = [
-            { ALT: () => $.CONSUME(t.Identificador) },
+            { ALT: () => $.CONSUME(t.ThisTok) },
+            { ALT: () => $.CONSUME(t.Identifier) },
+            { ALT: () => $.CONSUME(t.AbsLiteral) },
             { ALT: () => $.SUBRULE($.ArrayLiteral) },
             { ALT: () => $.SUBRULE($.ObjectLiteral) },
             { ALT: () => $.SUBRULE($.ParenthesisExpression) },
@@ -47,23 +63,23 @@ class UlaParser extends EmbeddedActionsParser {
     });
 
     $.RULE('ParenthesisExpression', () => {
-      $.CONSUME(t.ParentesisIzquierdo);
+      $.CONSUME(t.LParen);
       $.SUBRULE($.Expression);
-      $.CONSUME(t.ParentesisDerecho);
+      $.CONSUME(t.RParen);
     });
 
     // See 11.1.4
     $.RULE('ArrayLiteral', () => {
-      $.CONSUME(t.CorcheteIzquierdo);
+      $.CONSUME(t.LBracket);
       $.MANY(() => {
         $.OR([
-          // TODO: fix ambiguities with Comas
+          // TODO: fix ambiguities with commas
           // TODO2: WHICH AMBIGUITIES?! :)
           { ALT: () => $.SUBRULE($.ElementList) },
           { ALT: () => $.SUBRULE($.Elision) },
         ]);
       });
-      $.CONSUME(t.CorcheteDerecho);
+      $.CONSUME(t.RBracket);
     });
 
     // See 11.1.4
@@ -82,47 +98,70 @@ class UlaParser extends EmbeddedActionsParser {
     // See 11.1.4
     $.RULE('Elision', () => {
       $.AT_LEAST_ONE(() => {
-        $.CONSUME(t.Coma);
+        $.CONSUME(t.Comma);
       });
     });
 
     // See 11.1.5
     // this inlines PropertyNameAndValueList
     $.RULE('ObjectLiteral', () => {
-      $.CONSUME(t.LlaveIzquierda);
+      $.CONSUME(t.LCurly);
       $.OPTION(() => {
         $.SUBRULE($.PropertyAssignment);
         $.MANY(() => {
-          $.CONSUME(t.Coma);
+          $.CONSUME(t.Comma);
           $.SUBRULE2($.PropertyAssignment);
         });
         $.OPTION2(() => {
-          $.CONSUME2(t.Coma);
+          $.CONSUME2(t.Comma);
         });
       });
-      $.CONSUME(t.LlaveIzquierda);
+      $.CONSUME(t.RCurly);
     });
 
     // See 11.1.5
     $.RULE('PropertyAssignment', () => {
       $.OR([
         { ALT: () => $.SUBRULE($.RegularPropertyAssignment) },
+        { ALT: () => $.SUBRULE($.GetPropertyAssignment) },
+        { ALT: () => $.SUBRULE($.SetPropertyAssignment) },
       ]);
     });
 
     $.RULE('RegularPropertyAssignment', () => {
       $.SUBRULE($.PropertyName);
-      $.CONSUME(t.DosPuntos);
+      $.CONSUME(t.Colon);
       $.SUBRULE($.AssignmentExpression);
+    });
+
+    $.RULE('GetPropertyAssignment', () => {
+      $.CONSUME(t.GetTok);
+      $.SUBRULE($.PropertyName);
+      $.CONSUME(t.LParen);
+      $.CONSUME(t.RParen);
+      $.CONSUME(t.LCurly);
+      $.SUBRULE($.SourceElements); // FunctionBody(clause 13) is equivalent to SourceElements
+      $.CONSUME(t.RCurly);
+    });
+
+    $.RULE('SetPropertyAssignment', () => {
+      $.CONSUME(t.SetTok);
+      $.SUBRULE($.PropertyName);
+      $.CONSUME2(t.LParen);
+      $.CONSUME(t.Identifier);
+      $.CONSUME(t.RParen);
+      $.CONSUME(t.LCurly);
+      $.SUBRULE($.SourceElements); // FunctionBody(clause 13) is equivalent to SourceElements
+      $.CONSUME(t.RCurly);
     });
 
     // See 11.1.5
     // this inlines PropertySetParameterList
     $.RULE('PropertyName', () => {
       $.OR([
-        { ALT: () => $.CONSUME(t.Identificador) },
-        { ALT: () => $.CONSUME(t.CadenaCaracteres) },
-        { ALT: () => $.CONSUME(t.Entero) },
+        { ALT: () => $.CONSUME(t.IdentifierName) },
+        { ALT: () => $.CONSUME(t.StringLiteral) },
+        { ALT: () => $.CONSUME(t.NumericLiteral) },
       ]);
     });
 
@@ -130,7 +169,7 @@ class UlaParser extends EmbeddedActionsParser {
     // merging MemberExpression, NewExpression and CallExpression into one rule
     $.RULE('MemberCallNewExpression', () => {
       $.MANY(() => {
-        $.CONSUME(t.Nuevo);
+        $.CONSUME(t.NewTok);
       });
 
       $.OR([
@@ -148,28 +187,28 @@ class UlaParser extends EmbeddedActionsParser {
     });
 
     $.RULE('BoxMemberExpression', () => {
-      $.CONSUME(t.CorcheteIzquierdo);
+      $.CONSUME(t.LBracket);
       $.SUBRULE($.Expression);
-      $.CONSUME(t.CorcheteDerecho);
+      $.CONSUME(t.RBracket);
     });
 
     $.RULE('DotMemberExpression', () => {
-      $.CONSUME(t.Punto);
-      $.CONSUME(t.Identificador);
+      $.CONSUME(t.Dot);
+      $.CONSUME(t.IdentifierName);
     });
 
     // See 11.2
     // this inlines ArgumentList
     $.RULE('Arguments', () => {
-      $.CONSUME(t.ParentesisIzquierdo);
+      $.CONSUME(t.LParen);
       $.OPTION(() => {
         $.SUBRULE($.AssignmentExpression);
         $.MANY(() => {
-          $.CONSUME(t.Coma);
+          $.CONSUME(t.Comma);
           $.SUBRULE2($.AssignmentExpression);
         });
       });
-      $.CONSUME(t.ParentesisDerecho);
+      $.CONSUME(t.RParen);
     });
 
     // See 11.3
@@ -180,8 +219,8 @@ class UlaParser extends EmbeddedActionsParser {
         GATE: this.noLineTerminatorHere,
         DEF: () => {
           $.OR([
-            { ALT: () => $.CONSUME(t.MasMas) },
-            { ALT: () => $.CONSUME(t.MenosMenos) },
+            { ALT: () => $.CONSUME(t.PlusPlus) },
+            { ALT: () => $.CONSUME(t.MinusMinus) },
           ]);
         },
       });
@@ -196,11 +235,15 @@ class UlaParser extends EmbeddedActionsParser {
             $.OR2(
               $.c1
                 || ($.c1 = [
-                  { ALT: () => $.CONSUME(t.MasMas) },
-                  { ALT: () => $.CONSUME(t.MenosMenos) },
-                  { ALT: () => $.CONSUME(t.Suma) },
-                  { ALT: () => $.CONSUME(t.Resta) },
-                  { ALT: () => $.CONSUME(t.Exclamacion) },
+                  { ALT: () => $.CONSUME(t.DeleteTok) },
+                  { ALT: () => $.CONSUME(t.VoidTok) },
+                  { ALT: () => $.CONSUME(t.TypeOfTok) },
+                  { ALT: () => $.CONSUME(t.PlusPlus) },
+                  { ALT: () => $.CONSUME(t.MinusMinus) },
+                  { ALT: () => $.CONSUME(t.Plus) },
+                  { ALT: () => $.CONSUME(t.Minus) },
+                  { ALT: () => $.CONSUME(t.Tilde) },
+                  { ALT: () => $.CONSUME(t.Exclamation) },
                 ]),
             );
             $.SUBRULE($.UnaryExpression);
@@ -216,13 +259,21 @@ class UlaParser extends EmbeddedActionsParser {
           $.c3
             || ($.c3 = [
               // flat list of binary operators
-              { ALT: () => $.CONSUME(t.BarraBarra) },
+              { ALT: () => $.CONSUME(t.AbsAssignmentOperator) },
+              { ALT: () => $.CONSUME(t.VerticalBarVerticalBar) },
               { ALT: () => $.CONSUME(t.AmpersandAmpersand) },
-              { ALT: () => $.CONSUME(AbstractTokens.OperadorLogico) },
+              { ALT: () => $.CONSUME(t.VerticalBar) },
+              { ALT: () => $.CONSUME(t.Circumflex) },
+              { ALT: () => $.CONSUME(t.Ampersand) },
+              { ALT: () => $.CONSUME(t.AbsEqualityOperator) },
+              { ALT: () => $.CONSUME(t.AbsRelationalOperator) },
+              { ALT: () => $.CONSUME(t.InstanceOfTok) },
+              { ALT: () => $.CONSUME(t.InTok) },
+              { ALT: () => $.CONSUME(t.AbsShiftOperator) },
               {
-                ALT: () => $.CONSUME(AbstractTokens.OperadorMultiplicacion),
+                ALT: () => $.CONSUME(t.AbsMultiplicativeOperator),
               },
-              { ALT: () => $.CONSUME(AbstractTokens.OperadorMultiplicacion) },
+              { ALT: () => $.CONSUME(t.AbsAdditiveOperator) },
             ]),
         );
         $.SUBRULE2($.UnaryExpression);
@@ -236,13 +287,20 @@ class UlaParser extends EmbeddedActionsParser {
           $.c4
             || ($.c4 = [
               // flat list of binary operators
-              { ALT: () => $.CONSUME(t.BarraBarra) },
+              { ALT: () => $.CONSUME(t.AbsAssignmentOperator) },
+              { ALT: () => $.CONSUME(t.VerticalBarVerticalBar) },
               { ALT: () => $.CONSUME(t.AmpersandAmpersand) },
-              { ALT: () => $.CONSUME(AbstractTokens.OperadorLogico) },
+              { ALT: () => $.CONSUME(t.VerticalBar) },
+              { ALT: () => $.CONSUME(t.Circumflex) },
+              { ALT: () => $.CONSUME(t.Ampersand) },
+              { ALT: () => $.CONSUME(t.AbsEqualityOperator) },
+              { ALT: () => $.CONSUME(t.AbsRelationalOperator) },
+              { ALT: () => $.CONSUME(t.InstanceOfTok) },
+              { ALT: () => $.CONSUME(t.AbsShiftOperator) },
               {
-                ALT: () => $.CONSUME(AbstractTokens.OperadorMultiplicacion),
+                ALT: () => $.CONSUME(t.AbsMultiplicativeOperator),
               },
-              { ALT: () => $.CONSUME(AbstractTokens.OperadorMultiplicacion) },
+              { ALT: () => $.CONSUME(t.AbsAdditiveOperator) },
             ]),
         );
         $.SUBRULE2($.UnaryExpression);
@@ -253,9 +311,9 @@ class UlaParser extends EmbeddedActionsParser {
     $.RULE('AssignmentExpression', () => {
       $.SUBRULE($.BinaryExpression);
       $.OPTION(() => {
-        $.CONSUME(t.Pregunta);
+        $.CONSUME(t.Question);
         $.SUBRULE($.AssignmentExpression);
-        $.CONSUME(t.DosPuntos);
+        $.CONSUME(t.Colon);
         $.SUBRULE2($.AssignmentExpression);
       });
     });
@@ -264,9 +322,9 @@ class UlaParser extends EmbeddedActionsParser {
     $.RULE('AssignmentExpressionNoIn', () => {
       $.SUBRULE($.BinaryExpressionNoIn);
       $.OPTION(() => {
-        $.CONSUME(t.Pregunta);
+        $.CONSUME(t.Question);
         $.SUBRULE($.AssignmentExpression);
-        $.CONSUME(t.DosPuntos);
+        $.CONSUME(t.Colon);
         $.SUBRULE2($.AssignmentExpressionNoIn);
       });
     });
@@ -275,7 +333,7 @@ class UlaParser extends EmbeddedActionsParser {
     $.RULE('Expression', () => {
       $.SUBRULE($.AssignmentExpression);
       $.MANY(() => {
-        $.CONSUME(t.Coma);
+        $.CONSUME(t.Comma);
         $.SUBRULE2($.AssignmentExpression);
       });
     });
@@ -284,7 +342,7 @@ class UlaParser extends EmbeddedActionsParser {
     $.RULE('ExpressionNoIn', () => {
       $.SUBRULE($.AssignmentExpressionNoIn);
       $.MANY(() => {
-        $.CONSUME(t.Coma);
+        $.CONSUME(t.Comma);
         $.SUBRULE2($.AssignmentExpressionNoIn);
       });
     });
@@ -300,6 +358,7 @@ class UlaParser extends EmbeddedActionsParser {
             { ALT: () => $.SUBRULE($.VariableStatement) },
             { ALT: () => $.SUBRULE($.EmptyStatement) },
             // "LabelledStatement" must appear before "ExpressionStatement" due to common lookahead prefix ("inner :" vs "inner")
+            { ALT: () => $.SUBRULE($.LabelledStatement) },
             // The ambiguity is resolved by the ordering of the alternatives
             // See: https://ecma-international.org/ecma-262/5.1/#sec-12.4
             //   - [lookahead ∉ {{, function}]
@@ -312,17 +371,22 @@ class UlaParser extends EmbeddedActionsParser {
             { ALT: () => $.SUBRULE($.ContinueStatement) },
             { ALT: () => $.SUBRULE($.BreakStatement) },
             { ALT: () => $.SUBRULE($.ReturnStatement) },
+            { ALT: () => $.SUBRULE($.WithStatement) },
+            { ALT: () => $.SUBRULE($.SwitchStatement) },
+            { ALT: () => $.SUBRULE($.ThrowStatement) },
+            { ALT: () => $.SUBRULE($.TryStatement) },
+            { ALT: () => $.SUBRULE($.DebuggerStatement) },
           ]),
       );
     });
 
     // See 12.1
     $.RULE('Block', () => {
-      $.CONSUME(t.CorcheteIzquierdo);
+      $.CONSUME(t.LCurly);
       $.OPTION(() => {
         $.SUBRULE($.StatementList);
       });
-      $.CONSUME(t.CorcheteDerecho);
+      $.CONSUME(t.RCurly);
     });
 
     // See 12.1
@@ -334,16 +398,16 @@ class UlaParser extends EmbeddedActionsParser {
 
     // See 12.2
     $.RULE('VariableStatement', () => {
-      $.CONSUME(t.Crear);
+      $.CONSUME(t.VarTok);
       $.SUBRULE($.VariableDeclarationList);
-      $.CONSUME(t.DosPuntos, ENABLE_SEMICOLON_INSERTION);
+      $.CONSUME(t.Semicolon, ENABLE_SEMICOLON_INSERTION);
     });
 
     // See 12.2
     $.RULE('VariableDeclarationList', () => {
       $.SUBRULE($.VariableDeclaration);
       $.MANY(() => {
-        $.CONSUME(t.Coma);
+        $.CONSUME(t.Comma);
         $.SUBRULE2($.VariableDeclaration);
       });
     });
@@ -354,7 +418,7 @@ class UlaParser extends EmbeddedActionsParser {
       let numOfVars = 1;
       $.SUBRULE($.VariableDeclarationNoIn);
       $.MANY(() => {
-        $.CONSUME(t.Coma);
+        $.CONSUME(t.Comma);
         $.SUBRULE2($.VariableDeclarationNoIn);
         numOfVars++;
       });
@@ -363,7 +427,7 @@ class UlaParser extends EmbeddedActionsParser {
 
     // See 12.2
     $.RULE('VariableDeclaration', () => {
-      $.CONSUME(t.Identificador);
+      $.CONSUME(t.Identifier);
       $.OPTION(() => {
         $.SUBRULE($.Initialiser);
       });
@@ -371,7 +435,7 @@ class UlaParser extends EmbeddedActionsParser {
 
     // // See 12.2
     $.RULE('VariableDeclarationNoIn', () => {
-      $.CONSUME(t.Identificador);
+      $.CONSUME(t.Identifier);
       $.OPTION(() => {
         $.SUBRULE($.InitialiserNoIn);
       });
@@ -379,20 +443,20 @@ class UlaParser extends EmbeddedActionsParser {
 
     // See 12.2
     $.RULE('Initialiser', () => {
-      $.CONSUME(t.Es);
+      $.CONSUME(t.Eq);
       $.SUBRULE($.AssignmentExpression);
     });
 
     // See 12.2
     $.RULE('InitialiserNoIn', () => {
-      $.CONSUME(t.Es);
+      $.CONSUME(t.Eq);
       $.SUBRULE($.AssignmentExpressionNoIn);
     });
 
     // See 12.3
     $.RULE('EmptyStatement', () => {
       //  a semicolon is never inserted automatically if the semicolon would then be parsed as an empty statement
-      $.CONSUME(t.PuntoComa, DISABLE_SEMICOLON_INSERTION);
+      $.CONSUME(t.Semicolon, DISABLE_SEMICOLON_INSERTION);
     });
 
     // See 12.4
@@ -402,20 +466,20 @@ class UlaParser extends EmbeddedActionsParser {
       // the first alternative found to match will be taken. thus these ambiguities can be resolved
       // by ordering the alternatives
       $.SUBRULE($.Expression);
-      $.CONSUME(t.PuntoComa, ENABLE_SEMICOLON_INSERTION);
+      $.CONSUME(t.Semicolon, ENABLE_SEMICOLON_INSERTION);
     });
 
     // See 12.5
     $.RULE('IfStatement', () => {
-      $.CONSUME(t.Si);
-      $.CONSUME(t.ParentesisIzquierdo);
+      $.CONSUME(t.IfTok);
+      $.CONSUME(t.LParen);
       $.SUBRULE($.Expression);
-      $.CONSUME(t.ParentesisDerecho);
+      $.CONSUME(t.RParen);
       $.SUBRULE($.Statement);
       // refactoring spec to use an OPTION production for the 'else'
       // to resolve the dangling if-else problem
       $.OPTION(() => {
-        $.CONSUME(t.CasoContrario);
+        $.CONSUME(t.ElseTok);
         $.SUBRULE2($.Statement);
       });
     });
@@ -426,101 +490,291 @@ class UlaParser extends EmbeddedActionsParser {
       $.OR([
         { ALT: () => $.SUBRULE($.DoIteration) },
         { ALT: () => $.SUBRULE($.WhileIteration) },
+        { ALT: () => $.SUBRULE($.ForIteration) },
       ]);
     });
 
     $.RULE('DoIteration', () => {
-      $.CONSUME(t.Hacer);
+      $.CONSUME(t.DoTok);
       $.SUBRULE($.Statement);
-      $.CONSUME(t.Mientras);
-      $.CONSUME(t.ParentesisIzquierdo);
+      $.CONSUME(t.WhileTok);
+      $.CONSUME(t.LParen);
       $.SUBRULE($.Expression);
-      $.CONSUME(t.ParentesisDerecho);
-      $.CONSUME(t.PuntoComa, ENABLE_SEMICOLON_INSERTION);
+      $.CONSUME(t.RParen);
+      $.CONSUME(t.Semicolon, ENABLE_SEMICOLON_INSERTION);
     });
 
     $.RULE('WhileIteration', () => {
-      $.CONSUME(t.Mientras);
-      $.CONSUME(t.ParentesisIzquierdo);
+      $.CONSUME(t.WhileTok);
+      $.CONSUME(t.LParen);
       $.SUBRULE($.Expression);
-      $.CONSUME(t.ParentesisDerecho);
+      $.CONSUME(t.RParen);
       $.SUBRULE($.Statement);
     });
 
+    $.RULE('ForIteration', () => {
+      let inPossible = false;
+
+      $.CONSUME(t.ForTok);
+      $.CONSUME(t.LParen);
+      $.OR([
+        {
+          ALT: () => {
+            $.CONSUME(t.VarTok);
+            const numOfVars = $.SUBRULE($.VariableDeclarationListNoIn);
+            // 'in' is only possible if there was just one VarDec
+            // TODO: when CST output is enabled this check breaks
+            inPossible = numOfVars === 1;
+            $.SUBRULE($.ForHeaderParts, { ARGS: [inPossible] });
+          },
+        },
+        {
+          ALT: () => {
+            $.OPTION(() => {
+              const headerExp = $.SUBRULE($.ExpressionNoIn);
+              inPossible = this.canInComeAfterExp(headerExp);
+            });
+            $.SUBRULE2($.ForHeaderParts, { ARGS: [inPossible] });
+          },
+        },
+      ]);
+      $.CONSUME(t.RParen);
+      $.SUBRULE($.Statement);
+    });
+
+    $.RULE(
+      'ForHeaderParts',
+      /**
+       * @param inPossible whether or not the second alternative starting with InTok is available in
+       *        the current context. note that this means the grammar is not context free.
+       *        however the only other alternative is to use backtracking which is even worse.
+       */
+      (inPossible) => {
+        $.OR([
+          {
+            ALT: () => {
+              // no semicolon insertion in for header
+              $.CONSUME(t.Semicolon, DISABLE_SEMICOLON_INSERTION);
+              $.OPTION(() => {
+                $.SUBRULE($.Expression);
+              });
+              // no semicolon insertion in for header
+              $.CONSUME2(t.Semicolon, DISABLE_SEMICOLON_INSERTION);
+              $.OPTION2(() => {
+                $.SUBRULE2($.Expression);
+              });
+            },
+          },
+          {
+            GATE: () => inPossible,
+            ALT: () => {
+              $.CONSUME(t.InTok);
+              $.SUBRULE3($.Expression);
+            },
+          },
+        ]);
+      },
+    );
+
     // See 12.7
     $.RULE('ContinueStatement', () => {
-      $.CONSUME(t.Continuar);
+      $.CONSUME(t.ContinueTok);
       $.OPTION({
         GATE: this.noLineTerminatorHere,
         DEF: () => {
-          $.CONSUME(t.Identificador);
+          $.CONSUME(t.Identifier);
         },
       });
-      $.CONSUME(t.PuntoComa, ENABLE_SEMICOLON_INSERTION);
+      $.CONSUME(t.Semicolon, ENABLE_SEMICOLON_INSERTION);
     });
 
     // See 12.8
     $.RULE('BreakStatement', () => {
-      $.CONSUME(t.Parar);
+      $.CONSUME(t.BreakTok);
       $.OPTION({
         GATE: this.noLineTerminatorHere,
         DEF: () => {
-          $.CONSUME(t.Identificador);
+          $.CONSUME(t.Identifier);
         },
       });
-      $.CONSUME(t.PuntoComa, ENABLE_SEMICOLON_INSERTION);
+      $.CONSUME(t.Semicolon, ENABLE_SEMICOLON_INSERTION);
     });
 
     // See 12.9
     $.RULE('ReturnStatement', () => {
-      $.CONSUME(t.Retornar);
+      $.CONSUME(t.ReturnTok);
       $.OPTION({
         GATE: this.noLineTerminatorHere,
         DEF: () => {
           $.SUBRULE($.Expression);
         },
       });
-      $.CONSUME(t.PuntoComa, ENABLE_SEMICOLON_INSERTION);
+      $.CONSUME(t.Semicolon, ENABLE_SEMICOLON_INSERTION);
+    });
+
+    // See 12.10
+    $.RULE('WithStatement', () => {
+      $.CONSUME(t.WithTok);
+      $.CONSUME(t.LParen);
+      $.SUBRULE($.Expression);
+      $.CONSUME(t.RParen);
+      $.SUBRULE($.Statement);
+    });
+
+    // See 12.11
+    $.RULE('SwitchStatement', () => {
+      $.CONSUME(t.SwitchTok);
+      $.CONSUME(t.LParen);
+      $.SUBRULE($.Expression);
+      $.CONSUME(t.RParen);
+      $.SUBRULE($.CaseBlock);
+    });
+
+    // See 12.11
+    $.RULE('CaseBlock', () => {
+      $.CONSUME(t.LCurly);
+      $.OPTION(() => {
+        $.SUBRULE($.CaseClauses);
+      });
+      $.OPTION2(() => {
+        $.SUBRULE($.DefaultClause);
+      });
+      $.OPTION3(() => {
+        $.SUBRULE2($.CaseClauses);
+      });
+      $.CONSUME(t.RCurly);
+    });
+
+    // See 12.11
+    $.RULE('CaseClauses', () => {
+      $.AT_LEAST_ONE(() => {
+        $.SUBRULE($.CaseClause);
+      });
+    });
+
+    // See 12.11
+    $.RULE('CaseClause', () => {
+      $.CONSUME(t.CaseTok);
+      $.SUBRULE($.Expression);
+      $.CONSUME(t.Colon);
+      $.OPTION(() => {
+        $.SUBRULE($.StatementList);
+      });
+    });
+
+    // See 12.11
+    $.RULE('DefaultClause', () => {
+      $.CONSUME(t.DefaultTok);
+      $.CONSUME(t.Colon);
+      $.OPTION(() => {
+        $.SUBRULE($.StatementList);
+      });
+    });
+
+    // See 12.12
+    $.RULE('LabelledStatement', () => {
+      $.CONSUME(t.Identifier);
+      $.CONSUME(t.Colon);
+      $.OPTION(() => {
+        $.SUBRULE($.Statement);
+      });
+    });
+
+    // See 12.13
+    $.RULE('ThrowStatement', () => {
+      $.CONSUME(t.ThrowTok);
+      if (this.lineTerminatorHere()) {
+        // this will trigger re-sync recover which is the desired behavior,
+        // there is no danger of inRule recovery (single token insertion/deletion)
+        // happening in this case because that type of recovery can only happen if CONSUME(...) was invoked.
+        this.SAVE_ERROR(
+          new chevrotain.MismatchedTokenException(
+            'Line Terminator not allowed before Expression in Throw Statement',
+            // TODO: create line terminator token on the fly?
+          ),
+        );
+      }
+      $.SUBRULE($.Expression);
+      $.CONSUME(t.Semicolon, ENABLE_SEMICOLON_INSERTION);
+    });
+
+    // See 12.14
+    $.RULE('TryStatement', () => {
+      $.CONSUME(t.TryTok);
+      $.SUBRULE($.Block);
+
+      $.OR([
+        {
+          ALT: () => {
+            $.SUBRULE($.Catch);
+            $.OPTION(() => {
+              $.SUBRULE($.Finally);
+            });
+          },
+        },
+        { ALT: () => $.SUBRULE2($.Finally) },
+      ]);
+    });
+
+    // See 12.14
+    $.RULE('Catch', () => {
+      $.CONSUME(t.CatchTok);
+      $.CONSUME(t.LParen);
+      $.CONSUME(t.Identifier);
+      $.CONSUME(t.RParen);
+      $.SUBRULE($.Block);
+    });
+
+    // See 12.14
+    $.RULE('Finally', () => {
+      $.CONSUME(t.FinallyTok);
+      $.SUBRULE($.Block);
+    });
+
+    // See 12.15
+    $.RULE('DebuggerStatement', () => {
+      $.CONSUME(t.DebuggerTok);
+      $.CONSUME(t.Semicolon, ENABLE_SEMICOLON_INSERTION);
     });
 
     // A.5 Functions and Programs
 
     // See clause 13
     $.RULE('FunctionDeclaration', () => {
-      $.CONSUME(t.Funcion);
-      $.CONSUME(t.Identificador);
-      $.CONSUME(t.ParentesisIzquierdo);
+      $.CONSUME(t.FunctionTok);
+      $.CONSUME(t.Identifier);
+      $.CONSUME(t.LParen);
       $.OPTION(() => {
         $.SUBRULE($.FormalParameterList);
       });
-      $.CONSUME(t.ParentesisDerecho);
-      $.CONSUME(t.CorcheteIzquierdo);
+      $.CONSUME(t.RParen);
+      $.CONSUME(t.LCurly);
       $.SUBRULE($.SourceElements); // FunctionBody(clause 13) is equivalent to SourceElements
-      $.CONSUME(t.CorcheteDerecho);
+      $.CONSUME(t.RCurly);
     });
 
     // See clause 13
     $.RULE('FunctionExpression', () => {
-      $.CONSUME(t.Funcion);
+      $.CONSUME(t.FunctionTok);
       $.OPTION1(() => {
-        $.CONSUME(t.Identificador);
+        $.CONSUME(t.Identifier);
       });
-      $.CONSUME(t.ParentesisIzquierdo);
+      $.CONSUME(t.LParen);
       $.OPTION2(() => {
         $.SUBRULE($.FormalParameterList);
       });
-      $.CONSUME(t.ParentesisDerecho);
-      $.CONSUME(t.CorcheteIzquierdo);
+      $.CONSUME(t.RParen);
+      $.CONSUME(t.LCurly);
       $.SUBRULE($.SourceElements); // FunctionBody(clause 13) is equivalent to SourceElements
-      $.CONSUME(t.CorcheteDerecho);
+      $.CONSUME(t.RCurly);
     });
 
     // See clause 13
     $.RULE('FormalParameterList', () => {
-      $.CONSUME(t.Identificador);
+      $.CONSUME(t.Identifier);
       $.MANY(() => {
-        $.CONSUME(t.Coma);
-        $.CONSUME2(t.Identificador);
+        $.CONSUME(t.Comma);
+        $.CONSUME2(t.Identifier);
       });
     });
 
@@ -638,13 +892,13 @@ class UlaParser extends EmbeddedActionsParser {
 }
 
 const insertedSemiColon = {
-  tokenTypeIdx: t.PuntoComa.tokenTypeIdx,
+  tokenTypeIdx: t.Semicolon.tokenTypeIdx,
   image: ';',
   startOffset: NaN,
   endOffset: NaN,
   automaticallyInserted: true,
 };
 
-const parser = new UlaParser([]);
-
-module.exports = parser;
+module.exports = {
+  ECMAScript5Parser,
+};
