@@ -1,0 +1,20 @@
+<!-- <ngs-code-editor 
+  theme="vs-dark" 
+  [(value)]="code" 
+  language="typescript"
+  [dependencies]="dependencies" 
+  [options]="options">
+</ngs-code-editor> -->
+<div style="background-color:rgb(27, 24, 25); padding: 5px 10px; color:#fff;">
+  <h3>Editor de codigo - ULA</h3>
+</div>
+<ngs-code-editor 
+    class="c-fill" 
+    theme="vs-dark" 
+    [codeModel]="codeModel" 
+    [options]="options" 
+    (valueChanged)="onCodeChanged($event)"
+></ngs-code-editor>
+<div fxLayout="row" fxLayoutAlign="end">
+    <button (click)="onRequireSubmmit()">Enviar</button>
+</div>

@@ -1,0 +1,22 @@
+<div fxLayout="column" fxFlex="50" >
+  <app-code-editor style="height: 550px; margin: 10px;"></app-code-editor>
+</div >
+<div fxLayout="column" fxFlex="50">
+  <div style="background-color:crimson; color:#fff;  height: 300px; margin:10px;">
+    <div style="background-color:rgb(165, 15, 45); padding: 5px 10px;">
+      <h3>Estado</h3>
+    </div>
+    <div style="padding: 10px;">
+      <div fxLayout="row"> 
+        <div fxLayout="column" fxLayoutAlign="center center" style="width: 100px; height: 100px; background-color: rgb(219, 133, 150); margin-left: 20px;" *ngFor="let b of boxs">
+          <!-- {{b}} -->
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- <div style="background-color:cadetblue; height: 300px;"></div> -->
+  <app-interpreter-console></app-interpreter-console>
+</div>
+
+
+
