@@ -1,227 +1,50 @@
 const chevrotain = require('chevrotain');
 
-const { createToken, Lexer } = chevrotain;
+const { Lexer } = chevrotain;
 
 // Definición de Tokens
 
-const AbstractTokens = {
-  // Token abstracto que representa el tipo de operacion adicion (suma o resta)
-  // se usa para clasificar y simplificar las definiciones en el parser.
-  OperadorAdicion: createToken({
-    name: 'OperadorAdicion',
-    pattern: Lexer.NA,
-  }),
+const allTokens = [];
 
-  // Token abstracto que representa el tipo de operacion multiplicacion (multiplicación
-  // o división) se usa para clasificar y simplificar las definiciones en el parser.
-  OperadorMultiplicacion: createToken({
-    name: 'OperadorMultiplicacion',
-    pattern: Lexer.NA,
-  }),
+// Utility to avoid manually building the allTokens array
+function createToken(options) {
+  const newToken = chevrotain.createToken(options);
+  allTokens.push(newToken);
+  return newToken;
+}
 
-};
+const AdditionOperator = createToken({ name: 'AdditionOperator', pattern: Lexer.NA });
+const MultiplicationOperator = createToken({ name: 'MultiplicationOperator', pattern: Lexer.NA });
+const RelationalOperator = createToken({ name: 'RelationalOperator', pattern: Lexer.NA });
 
 const Tokens = {
-
-  /** ************
- * Literaless *
- ************* */
-  Entero: createToken({
-    name: 'Entero',
-    pattern: /0|[1-9]\d*/,
-  }),
-
-  CadenaCaracteres: createToken({
-    name: 'CadenaCaracteres',
-    pattern: /"(\w|\d|\s)*"/,
-  }),
-
-  /** ************
- * Operadores *
- ************* */
-
-  // comparadores
-
-  MayorQue: createToken({
-    name: 'MayorQue',
-    pattern: />|mayor_que/,
-  }),
-
-  MenorQue: createToken({
-    name: 'MenorQue',
-    pattern: /<|menor_que/,
-  }),
-
-  MayorIgualQue: createToken({
-    name: 'MayorIgualQue',
-    pattern: />=|mayor_igual_que/,
-  }),
-
-  MenorIgualQue: createToken({
-    name: 'MenorIgualQue',
-    pattern: /<=|menor_igual_que/,
-  }),
-
-  IgualQue: createToken({
-    name: 'IgualQue',
-    pattern: /igual_que|==/,
-  }),
-
-  DiferenteA: createToken({
-    name: 'DiferenteA',
-    pattern: /(diferente_a|!=)/,
-  }),
-
-  // aritmeticos
-
-  Suma: createToken({
-    name: 'Suma',
-    pattern: /\+|mas/,
-    categories: AbstractTokens.OperadorAdicion,
-  }),
-
-  Resta: createToken({
-    name: 'Resta',
-    pattern: /-|menos/,
-    categories: AbstractTokens.OperadorAdicion,
-  }),
-
-  Multiplicacion: createToken({
-    name: 'Multiplicacion',
-    pattern: /\*|por/,
-    categories: AbstractTokens.OperadorMultiplicacion,
-  }),
-
-  Division: createToken({
-    name: 'Division',
-    pattern: /\/|entre/,
-    categories: AbstractTokens.OperadorMultiplicacion,
-  }),
-
-  /** *********************
- * Palabras reservadas *
- ********************** */
-  Identificador: createToken({
-    name: 'Identificador',
-    pattern: /[a-zA-Z](\w|\d)*/,
-  }),
-
-  Crear: createToken({
-    name: 'Crear',
-    pattern: /crear/,
-  }),
-
-  Numero: createToken({
-    name: 'Numero',
-    pattern: /numero/,
-  }),
-
-  Mostrar: createToken({
-    name: 'Mostrar',
-    pattern: /mostrar/,
-  }),
-
-  // condicionales
-
-  Si: createToken({
-    name: 'Condicional',
-    pattern: /si/,
-  }),
-
-  CasoContrario: createToken({
-    name: 'CasoContrario',
-    pattern: /caso_contrario:/,
-  }),
-
-  // booleanos
-
-  Verdadero: createToken({
-    name: 'Verdadero',
-    pattern: /verdadero/,
-  }),
-
-  Falso: createToken({
-    name: 'Falso',
-    pattern: /falso/,
-  }),
-
-  /** **********
- * Símbolos *
- *********** */
-  ParentesisIzquierdo: createToken({
-    name: 'ParentesisIzquierdo',
-    pattern: /\(/,
-  }),
-
-  ParentesisDerecho: createToken({
-    name: 'ParentesisDerecho',
-    pattern: /\)/,
-  }),
-
-  Coma: createToken({
-    name: 'Coma',
-    pattern: /,/,
-  }),
-
-  PuntoComa: createToken({
-    name: 'PuntoComa',
-    pattern: /;/,
-  }),
-
-  /** ***********
- * Ignorados *
- ************ */
-  EspacioBlanco: createToken({
-    name: 'EspacioBlanco',
-    pattern: /\s+/,
-    group: Lexer.SKIPPED,
-  }),
-
-  Comentario: createToken({
-    name: 'Comentario',
-    pattern: /\/\*.*?\*\//,
-    group: Lexer.SKIPPED,
-  }),
-
+  WhiteSpace: createToken({ name: 'WhiteSpace', pattern: /\s+/, group: Lexer.SKIPPED }),
+  Comment: createToken({ name: 'Comment', pattern: /\/\/[\w|\d]*\n/, group: Lexer.SKIPPED }),
+  If: createToken({ name: 'If', pattern: /si/ }),
+  Else: createToken({ name: 'Else', pattern: /contrario/ }),
+  While: createToken({ name: 'While', pattern: /mientras/ }),
+  Do: createToken({ name: 'Do', pattern: /hacer/ }),
+  LCurly: createToken({ name: 'LCurly', pattern: /{/ }),
+  RCurly: createToken({ name: 'RCurly', pattern: /}/ }),
+  LParen: createToken({ name: 'LParen', pattern: /\(/ }),
+  RParen: createToken({ name: 'RParen', pattern: /\)/ }),
+  SemiColon: createToken({ name: 'SemiColon', pattern: /;/ }),
+  LessThanOrEqual: createToken({ name: 'LessThanOrEqual', pattern: /<=/, categories: RelationalOperator }),
+  GreaterThanOrEqual: createToken({ name: 'GreaterThanOrEqual', pattern: />=/, categories: RelationalOperator }),
+  LessThan: createToken({ name: 'LessThan', pattern: /</, categories: RelationalOperator }),
+  GreaterThan: createToken({ name: 'GreaterThan', pattern: />/, categories: RelationalOperator }),
+  Equals: createToken({ name: 'Equals', pattern: /=|igual/ }),
+  Plus: createToken({ name: 'Plus', pattern: /\+|mas/, categories: AdditionOperator }),
+  Minus: createToken({ name: 'Minus', pattern: /-|menos/, categories: AdditionOperator }),
+  Multi: createToken({ name: 'Multi', pattern: /\*|por/, categories: MultiplicationOperator }),
+  Div: createToken({ name: 'Div', pattern: /\/|entre/, categories: MultiplicationOperator }),
+  INT: createToken({ name: 'INT', pattern: /[0-9]+/ }),
+  // TODO: resolve ambiguity keywords vs identifiers
+  ID: createToken({ name: 'ID', pattern: /[a-z]+/ }),
+  MultiplicationOperator,
+  AdditionOperator,
+  RelationalOperator,
 };
-// Lista de Tokens
-// Nota: ¡El orden es importante!
-
-const allTokens = [
-  Tokens.Comentario,
-  Tokens.EspacioBlanco,
-  // Palabras Clave
-  Tokens.Crear,
-  Tokens.Mostrar,
-  Tokens.Si,
-  Tokens.CasoContrario,
-  Tokens.Numero,
-  // Literales
-  Tokens.CadenaCaracteres,
-  Tokens.Entero,
-  Tokens.Verdadero,
-  Tokens.Falso,
-  // Operadores
-  AbstractTokens.OperadorAdicion,
-  AbstractTokens.OperadorMultiplicacion,
-  Tokens.Suma,
-  Tokens.Resta,
-  Tokens.Multiplicacion,
-  Tokens.Division,
-  Tokens.MayorQue,
-  Tokens.MenorQue,
-  Tokens.DiferenteA,
-  Tokens.MayorIgualQue,
-  Tokens.MenorIgualQue,
-  Tokens.IgualQue,
-  // Identificador
-  Tokens.Identificador,
-  // Simbolos
-  Tokens.ParentesisDerecho,
-  Tokens.ParentesisIzquierdo,
-  Tokens.Coma,
-  Tokens.PuntoComa,
-];
 
 const lexer = new Lexer(allTokens);
 
@@ -229,5 +52,4 @@ module.exports = {
   lexer,
   Tokens,
   tokenList: allTokens,
-  AbstractTokens,
 };
