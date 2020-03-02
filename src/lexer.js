@@ -19,7 +19,7 @@ const RelationalOperator = createToken({ name: 'RelationalOperator', pattern: Le
 
 const Tokens = {
   WhiteSpace: createToken({ name: 'WhiteSpace', pattern: /\s+/, group: Lexer.SKIPPED }),
-  Comment: createToken({ name: 'Comment', pattern: /\/\/[\w|\d]*\n/, group: Lexer.SKIPPED }),
+  Comment: createToken({ name: 'Comment', pattern: /\/\*.*?\*\//, group: Lexer.SKIPPED }),
   If: createToken({ name: 'If', pattern: /si/ }),
   Else: createToken({ name: 'Else', pattern: /contrario/ }),
   While: createToken({ name: 'While', pattern: /mientras/ }),
