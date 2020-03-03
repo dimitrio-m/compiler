@@ -6,7 +6,7 @@ const {
   lexer,
 } = require('./src/lexer');
 const parser = require('./src/parser');
-// const interpreter = require('./src/interpreter');
+const interpreter = require('./src/interpreter');
 
 const inputProgram = fs.readFileSync('./examples/programa.ula').toString();
 
@@ -26,12 +26,13 @@ if (parser.errors.length > 0) {
 }
 
 // 3. Ejecutar analisis semantico usando CstVisitor.
-// const value = interpreter.visit(cst);
+const value = interpreter.visit(cst);
 
 const result = {
   cst,
   lexErrors: lexResult.errors,
   parseErrors: parser.errors,
+  jsCode: value,
 };
 
 console.log('\nEntrada:\n');
@@ -39,4 +40,3 @@ console.log(inputProgram);
 console.log('\nSalida:\n');
 console.log(result);
 console.log('\n');
-console.log(util.inspect(result.cst, false, null, true));

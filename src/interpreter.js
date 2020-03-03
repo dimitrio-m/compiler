@@ -16,83 +16,114 @@ class UlaInterpreter extends BaseCstVisitor {
     this.validateVisitor();
   }
 
-
-  Expression(ctx) {
+  program(ctx) {
     // visiting an array is equivalent to visiting its first element.
-    return this.visit(ctx.AdditionExpression);
+    let result = '';
+    ctx.statement.forEach((element) => {
+      result += this.visit(element);
+    });
+    return result;
   }
 
-  // Note the usage if the "derecha" and "izquierda" labels to increase the readability.
+  statement(ctx) {
+    if (ctx.expressionStatement) {
+      return this.visit(ctx.expressionStatement);
+    } if (ctx.whileStatement) {
+      return this.visit(ctx.whileStatement);
+    } if (ctx.ifStatement) {
+      return this.visit(ctx.ifStatement);
+    }
+    console.log(ctx);
+    return 0;
+  }
+
+  ifStatement(ctx) {
+    if (ctx.Else) {
+      return `if ${this.visit(ctx.paren_expr)} ${this.visit(ctx.statement[0])} else ${this.visit(ctx.statement[1])}`;
+    }
+    return `if ${this.visit(ctx.paren_expr)} ${this.visit(ctx.statement)}`;
+  }
+
+  whileStatement(ctx) {
+    return `while ${this.visit(ctx.paren_expr)} {${this.visit(ctx.statement)}}`;
+  }
+
+  doStatement(ctx) {
+    return 0;
+  }
+
+  blockStatement(ctx) {
+    let result = '{';
+    ctx.statement.forEach((element) => {
+      result += this.visit(element);
+    });
+    return `${result}}`;
+  }
+
+  expressionStatement(ctx) {
+    return `${this.visit(ctx.expression)};`;
+  }
+
+  expression(ctx) {
+    if (ctx.assignExpression) {
+      return this.visit(ctx.assignExpression);
+    }
+    return this.visit(ctx.relationExpression);
+  }
+
+  relationExpression(ctx) {
+    if (ctx.RelationalOperator) {
+      const tokenName = ctx.RelationalOperator[0].tokenType.name;
+      let operator = '';
+      if (tokenName === 'GreaterThan') {
+        operator = '>';
+      } else if (tokenName === 'LessThan') {
+        operator = '<';
+      } else if (tokenName === 'GreaterThanOrEqual') {
+        operator = '>=';
+      } else {
+        operator = '<=';
+      }
+      return `${this.visit(ctx.lhs)} ${operator} ${this.visit(ctx.rhs)}`;
+    }
+    return this.visit(ctx.lhs);
+  }
+
   AdditionExpression(ctx) {
-    let result = this.visit(ctx.izquierda);
-    // "derecha" key may be undefined as the grammar defines it as optional (MANY === zero or more).
-    if (ctx.derecha) {
-      ctx.derecha.forEach((operandoDerecho, idx) => {
-        // there will be one operator for each derecha operand
-        const valor = this.visit(operandoDerecho);
-        const operador = ctx.OperadorAdicion[idx];
-
-        if (tokenMatcher(operador, Tokens.Suma)) {
-          result += valor;
-        } else {
-          // Resta
-          result -= valor;
-        }
-      });
+    if (ctx.AdditionOperator) {
+      const operator = ctx.AdditionOperator[0].tokenType.name;
+      return `${this.visit(ctx.lhs)} ${operator === 'Plus' ? '+' : '-'} ${this.visit(ctx.rhs)}`;
     }
-
-    return result;
+    return this.visit(ctx.lhs);
   }
 
-  MultiplicationExpression(ctx) {
-    let result = this.visit(ctx.izquierda);
-
-    // "derecha" key may be undefined as the grammar defines it as optional (MANY === zero or more).
-    if (ctx.derecha) {
-      ctx.derecha.forEach((operandoDerecho, idx) => {
-        // there will be one operator for each derecha operand
-        const valor = this.visit(operandoDerecho);
-        const operador = ctx.OperadorMultiplicacion[idx];
-
-        if (tokenMatcher(operador, Tokens.Multiplicacion)) {
-          result *= valor;
-        } else {
-          // Division
-          result /= valor;
-        }
-      });
+  multiplicationExpression(ctx) {
+    if (ctx.MultiplicationOperator) {
+      const operator = ctx.MultiplicationOperator[0].tokenType.name;
+      return `${this.visit(ctx.lhs)} ${operator === 'Multi' ? '*' : '/'} ${this.visit(ctx.rhs)}`;
     }
-
-    return result;
+    return this.visit(ctx.lhs);
   }
 
-  // eslint-disable-next-line consistent-return
-  AtomicExpression(ctx) {
-    if (ctx.ParenthesisExpression) {
-      return this.visit(ctx.ParenthesisExpression);
-    } if (ctx.Entero) {
-      return parseInt(ctx.Entero[0].image, 10);
+  assignExpression(ctx) {
+    const id = ctx.ID[0].image;
+    return `${id} = ${this.visit(ctx.expression)}`;
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  term(ctx) {
+    if (ctx.INT) {
+      return ctx.INT[0].image;
     }
+    return ctx.ID[0].image;
   }
 
-  ParenthesisExpression(ctx) {
-    // The ctx will also contain the parenthesis tokens, but we don't care about those
-    // in the context of calculating the result.
-    return this.visit(ctx.Expression);
+  paren_expr(ctx) {
+    return `(${this.visit(ctx.expression)})`;
   }
 
-  Statement(ctx) {
-    return this.visit(ctx.Expression);
-  }
-
-  SourceElements(ctx) {
-    return ctx.Statement.map((statement) => this.visit(statement));
-  }
-
-  Program(ctx) {
-    console.log(util.inspect(ctx, false, null, true));
-
-    return this.visit(ctx.SourceElements);
+  emptyStatement(ctx) {
+    return 0;
   }
 }
 

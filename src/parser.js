@@ -4,7 +4,6 @@ const lexer = require('./lexer');
 const { CstParser } = chevrotain;
 const { Tokens, tokenList } = lexer;
 
-
 class UlaParser extends CstParser {
   constructor() {
     super(tokenList);
