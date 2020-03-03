@@ -86,8 +86,10 @@ class UlaInterpreter extends BaseCstVisitor {
         operator = '<';
       } else if (tokenName === 'GreaterThanOrEqual') {
         operator = '>=';
-      } else {
+      } else if (tokenName === 'LessThanOrEqual') {
         operator = '<=';
+      } else {
+        operator = '==';
       }
       return `${this.visit(ctx.lhs)} ${operator} ${this.visit(ctx.rhs)}`;
     }

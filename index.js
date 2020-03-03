@@ -8,7 +8,7 @@ const {
 const parser = require('./src/parser');
 const interpreter = require('./src/interpreter');
 
-const inputProgram = fs.readFileSync('./examples/fibonacci.ula').toString();
+const inputProgram = fs.readFileSync('./examples/programa.ula').toString();
 
 // 1. "Tokenizar" la entrada
 const lexResult = lexer.tokenize(`${inputProgram}`);
