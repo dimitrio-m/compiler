@@ -1,41 +1,18 @@
 // const util = require('util');
 const fs = require('fs');
-// const util = require('util');
+const compiler = require('./src/compiler');
 
-const {
-  lexer,
-} = require('./src/lexer');
-const parser = require('./src/parser');
-const interpreter = require('./src/interpreter');
+const sourceCode = fs.readFileSync(process.argv[2]).toString();
 
-const inputProgram = fs.readFileSync('./examples/programa.ula').toString();
+const result = compiler(sourceCode);
 
-// 1. "Tokenizar" la entrada
-const lexResult = lexer.tokenize(`${inputProgram}`);
-
-// 2. "Parsear" el vector de tokens
-parser.input = lexResult.tokens;
-const cst = parser.program();
-
-if (parser.errors.length > 0) {
-  console.error(parser.errors[0]);
+if (result.lexErrors.length > 0) {
+  console.error(result.lexErrors[0]);
   process.exit(1);
 }
-
-// 3. Ejecutar analisis semantico usando CstVisitor.
-const value = interpreter.visit(cst);
-
-const result = {
-  cst,
-  lexErrors: lexResult.errors,
-  parseErrors: parser.errors,
-  jsCode: value,
-};
-
-console.log('\nEntrada:\n');
-console.log(inputProgram);
-console.log('\nSalida:\n');
-console.log(result);
-console.log('\n');
+if (result.parseErrors.length > 0) {
+  console.error(result.parseErrors[0]);
+  process.exit(1);
+}
 
 eval(result.jsCode);
