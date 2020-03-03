@@ -24,12 +24,14 @@ class UlaParser extends CstParser {
         { ALT: () => $.SUBRULE($.blockStatement) },
         { ALT: () => $.SUBRULE($.expressionStatement) },
         { ALT: () => $.SUBRULE($.emptyStatement) },
+        { ALT: () => $.SUBRULE($.printStatement) },
+
       ]);
     });
 
     $.RULE('ifStatement', () => {
       $.CONSUME(Tokens.If);
-      $.SUBRULE($.paren_expr);
+      $.SUBRULE($.parenExpression);
       $.SUBRULE($.statement);
       $.OPTION(() => {
         $.CONSUME(Tokens.Else);
@@ -39,7 +41,7 @@ class UlaParser extends CstParser {
 
     $.RULE('whileStatement', () => {
       $.CONSUME(Tokens.While);
-      $.SUBRULE($.paren_expr);
+      $.SUBRULE($.parenExpression);
       $.SUBRULE($.statement);
     });
 
@@ -47,8 +49,8 @@ class UlaParser extends CstParser {
       $.CONSUME(Tokens.Do);
       $.SUBRULE($.statement);
       $.CONSUME(Tokens.While);
-      $.SUBRULE($.paren_expr);
-      $.CONSUME(Tokens.SemiColon);
+      $.SUBRULE($.parenExpression);
+      // $.CONSUME(Tokens.SemiColon);
     });
 
     $.RULE('blockStatement', () => {
@@ -61,7 +63,6 @@ class UlaParser extends CstParser {
 
     $.RULE('expressionStatement', () => {
       $.SUBRULE($.expression);
-      $.CONSUME(Tokens.SemiColon);
     });
 
     $.RULE('expression', () => {
@@ -109,11 +110,11 @@ class UlaParser extends CstParser {
       $.OR([
         { ALT: () => $.CONSUME(Tokens.ID) },
         { ALT: () => $.CONSUME(Tokens.INT) },
-        { ALT: () => $.SUBRULE($.paren_expr) },
+        { ALT: () => $.SUBRULE($.parenExpression) },
       ]);
     });
 
-    $.RULE('paren_expr', () => {
+    $.RULE('parenExpression', () => {
       $.CONSUME(Tokens.LParen);
       $.SUBRULE($.expression);
       $.CONSUME(Tokens.RParen);
@@ -121,6 +122,11 @@ class UlaParser extends CstParser {
 
     $.RULE('emptyStatement', () => {
       $.CONSUME(Tokens.SemiColon);
+    });
+
+    $.RULE('printStatement', () => {
+      $.CONSUME(Tokens.Print);
+      $.SUBRULE($.parenExpression);
     });
 
     // very important to call this after all the rules have been defined.

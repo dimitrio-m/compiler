@@ -1,6 +1,6 @@
 // const util = require('util');
 const fs = require('fs');
-const util = require('util');
+// const util = require('util');
 
 const {
   lexer,
@@ -8,10 +8,7 @@ const {
 const parser = require('./src/parser');
 const interpreter = require('./src/interpreter');
 
-const inputProgram = fs.readFileSync('./examples/programa.ula').toString();
-
-// 0. Agregar ; al final de lineas
-// TODO: mejorar implementacion cuando es una linea con comentario
+const inputProgram = fs.readFileSync('./examples/fibonacci.ula').toString();
 
 // 1. "Tokenizar" la entrada
 const lexResult = lexer.tokenize(`${inputProgram}`);
@@ -40,3 +37,5 @@ console.log(inputProgram);
 console.log('\nSalida:\n');
 console.log(result);
 console.log('\n');
+
+eval(result.jsCode);

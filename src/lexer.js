@@ -16,23 +16,25 @@ function createToken(options) {
 const AdditionOperator = createToken({ name: 'AdditionOperator', pattern: Lexer.NA });
 const MultiplicationOperator = createToken({ name: 'MultiplicationOperator', pattern: Lexer.NA });
 const RelationalOperator = createToken({ name: 'RelationalOperator', pattern: Lexer.NA });
+const ID = chevrotain.createToken({ name: 'ID', pattern: /[a-zA-Z0-9]+/ });
 
 const Tokens = {
   WhiteSpace: createToken({ name: 'WhiteSpace', pattern: /\s+/, group: Lexer.SKIPPED }),
   Comment: createToken({ name: 'Comment', pattern: /\/\*.*?\*\//, group: Lexer.SKIPPED }),
-  If: createToken({ name: 'If', pattern: /si/ }),
+  If: createToken({ name: 'If', pattern: /si/, longer_alt: ID }),
   Else: createToken({ name: 'Else', pattern: /contrario/ }),
   While: createToken({ name: 'While', pattern: /mientras/ }),
+  Print: createToken({ name: 'Print', pattern: /mostrar/ }),
   Do: createToken({ name: 'Do', pattern: /hacer/ }),
   LCurly: createToken({ name: 'LCurly', pattern: /{/ }),
   RCurly: createToken({ name: 'RCurly', pattern: /}/ }),
   LParen: createToken({ name: 'LParen', pattern: /\(/ }),
   RParen: createToken({ name: 'RParen', pattern: /\)/ }),
   SemiColon: createToken({ name: 'SemiColon', pattern: /;/ }),
-  LessThanOrEqual: createToken({ name: 'LessThanOrEqual', pattern: /<=/, categories: RelationalOperator }),
-  GreaterThanOrEqual: createToken({ name: 'GreaterThanOrEqual', pattern: />=/, categories: RelationalOperator }),
-  LessThan: createToken({ name: 'LessThan', pattern: /</, categories: RelationalOperator }),
-  GreaterThan: createToken({ name: 'GreaterThan', pattern: />/, categories: RelationalOperator }),
+  LessThanOrEqual: createToken({ name: 'LessThanOrEqual', pattern: /<=|menor igual que/, categories: RelationalOperator }),
+  GreaterThanOrEqual: createToken({ name: 'GreaterThanOrEqual', pattern: />=|mayor igual que/, categories: RelationalOperator }),
+  LessThan: createToken({ name: 'LessThan', pattern: /<|menor que/, categories: RelationalOperator }),
+  GreaterThan: createToken({ name: 'GreaterThan', pattern: />|mayor que/, categories: RelationalOperator }),
   Equals: createToken({ name: 'Equals', pattern: /=|igual/ }),
   Plus: createToken({ name: 'Plus', pattern: /\+|mas/, categories: AdditionOperator }),
   Minus: createToken({ name: 'Minus', pattern: /-|menos/, categories: AdditionOperator }),
@@ -40,11 +42,13 @@ const Tokens = {
   Div: createToken({ name: 'Div', pattern: /\/|entre/, categories: MultiplicationOperator }),
   INT: createToken({ name: 'INT', pattern: /[0-9]+/ }),
   // TODO: resolve ambiguity keywords vs identifiers
-  ID: createToken({ name: 'ID', pattern: /[a-z]+/ }),
+  ID,
   MultiplicationOperator,
   AdditionOperator,
   RelationalOperator,
 };
+
+allTokens.push(ID);
 
 const lexer = new Lexer(allTokens);
 

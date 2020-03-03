@@ -1,10 +1,7 @@
-const chevrotain = require('chevrotain');
-const util = require('util');
+/* eslint-disable no-unused-vars */
+/* eslint-disable class-methods-use-this */
+// const util = require('util');
 const parser = require('./parser');
-const lexer = require('./lexer');
-
-const { tokenMatcher } = chevrotain;
-const { Tokens } = lexer;
 
 const BaseCstVisitor = parser.getBaseCstVisitorConstructor();
 
@@ -32,6 +29,14 @@ class UlaInterpreter extends BaseCstVisitor {
       return this.visit(ctx.whileStatement);
     } if (ctx.ifStatement) {
       return this.visit(ctx.ifStatement);
+    } if (ctx.printStatement) {
+      return this.visit(ctx.printStatement);
+    } if (ctx.blockStatement) {
+      return this.visit(ctx.blockStatement);
+    } if (ctx.emptyStatement) {
+      return this.visit(ctx.emptyStatement);
+    } if (ctx.doStatement) {
+      return this.visit(ctx.doStatement);
     }
     console.log(ctx);
     return 0;
@@ -39,17 +44,17 @@ class UlaInterpreter extends BaseCstVisitor {
 
   ifStatement(ctx) {
     if (ctx.Else) {
-      return `if ${this.visit(ctx.paren_expr)} ${this.visit(ctx.statement[0])} else ${this.visit(ctx.statement[1])}`;
+      return `if ${this.visit(ctx.parenExpression)} ${this.visit(ctx.statement[0])} else ${this.visit(ctx.statement[1])}`;
     }
-    return `if ${this.visit(ctx.paren_expr)} ${this.visit(ctx.statement)}`;
+    return `if ${this.visit(ctx.parenExpression)} ${this.visit(ctx.statement)}`;
   }
 
   whileStatement(ctx) {
-    return `while ${this.visit(ctx.paren_expr)} {${this.visit(ctx.statement)}}`;
+    return `while ${this.visit(ctx.parenExpression)} {${this.visit(ctx.statement)}}`;
   }
 
   doStatement(ctx) {
-    return 0;
+    return `do {${this.visit(ctx.statement)}} while${this.visit(ctx.parenExpression)};`;
   }
 
   blockStatement(ctx) {
@@ -118,12 +123,17 @@ class UlaInterpreter extends BaseCstVisitor {
     return ctx.ID[0].image;
   }
 
-  paren_expr(ctx) {
+  parenExpression(ctx) {
     return `(${this.visit(ctx.expression)})`;
   }
 
+  // eslint-disable-next-line no-unused-vars
   emptyStatement(ctx) {
-    return 0;
+    return '';
+  }
+
+  printStatement(ctx) {
+    return `console.log(${this.visit(ctx.parenExpression)});`;
   }
 }
 
